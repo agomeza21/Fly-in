@@ -1,17 +1,19 @@
 import sys
+from models import Zone, Connection, Graph
 
 
 class Parser:
     def __init__(self) -> None:
         self.nb_drones: int = 0
-        self.zones: dict = {}
+        self.zones: dict[str, dict[str, int | dict[str, str]]] = {}
         self.start_hub_name: str = ""
         self.end_hub_name: str = ""
-        self.connections: list = []
-        self.connection_names: set = set()
+        self.connections: list[dict[str, str | dict[str, str]]] = []
+        self.connection_names: set[tuple[str, str]] = set()
 
     def _parse_zone_line(self, line: str, line_number: int,
-                         zone_type: str) -> tuple[str, int, int, dict]:
+                         zone_type: str) -> tuple[str, int, int,
+                                                  dict[str, str]]:
         _, data = line.split(":", 1)
         data = data.strip()
         found = data.find("[")
@@ -42,12 +44,16 @@ class Parser:
                                  f" metadata format '{pair}'")
             key, value = pair.split("=", 1)
             meta_dict[key] = value
+        if ("zone" in meta_dict and meta_dict["zone"]
+                not in Zone.VALID_ZONE_TYPES):
+            raise ValueError(f"line {line_number}: invalid zone type "
+                             f"'{meta_dict['zone']}'")
         if name in self.zones:
             raise ValueError(f"line {line_number}: zone name"
                              f" '{name}' is already used")
         return name, x_int, y_int, meta_dict
 
-    def parse(self, filepath: str) -> None:
+    def parse(self, filepath: str) -> Graph:
         try:
             with open(filepath, "r") as file:
                 for line_number, line in enumerate(file, start=1):
@@ -139,6 +145,43 @@ class Parser:
                 raise ValueError("start_hub is not defined")
             if self.end_hub_name == "":
                 raise ValueError("end_hub is not defined")
+            zones_obj: dict[str, Zone] = {}
+            for name, zone_data in self.zones.items():
+                zone_meta = zone_data["metadata"]
+                x_val = zone_data["x"]
+                y_val = zone_data["y"]
+                if (isinstance(zone_meta, dict) and isinstance(x_val, int)
+                        and isinstance(y_val, int)):
+                    zone = Zone(
+                        name=name,
+                        x=x_val,
+                        y=y_val,
+                        zone_type=zone_meta.get("zone", "normal"),
+                        color=zone_meta.get("color", None),
+                        max_drones=int(zone_meta.get("max_drones", 1))
+                    )
+                    zones_obj[name] = zone
+            connections_obj: list[Connection] = []
+            for conn in self.connections:
+                zone1_obj = zones_obj[str(conn["zone1"])]
+                zone2_obj = zones_obj[str(conn["zone2"])]
+                conn_meta = conn["metadata"]
+                if isinstance(conn_meta, dict):
+                    connection = Connection(
+                        zone1_obj=zone1_obj,
+                        zone2_obj=zone2_obj,
+                        max_link_capacity=int(
+                            conn_meta.get("max_link_capacity", 1))
+                    )
+                    connections_obj.append(connection)
+            graph = Graph(
+                nb_drones=self.nb_drones,
+                zones=zones_obj,
+                connections=connections_obj,
+                start_hub=zones_obj[self.start_hub_name],
+                end_hub=zones_obj[self.end_hub_name]
+            )
+            return graph
         except (FileNotFoundError, PermissionError, ValueError) as e:
             if isinstance(e, FileNotFoundError):
                 print(f"Error: file '{filepath}' not found")

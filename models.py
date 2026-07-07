@@ -31,3 +31,14 @@ class Graph:
         self.connections: list[Connection] = connections
         self.start_hub: Zone = start_hub
         self.end_hub: Zone = end_hub
+
+
+class Drone:
+    def __init__(self, drone_id: int, current_zone: Zone,
+                 path_index: int = 0, arrived: bool = False,
+                 turns_in_transit: int = 0) -> None:
+        self.drone_id: int = drone_id
+        self.current_zone: Zone = current_zone
+        self.path_index: int = path_index
+        self.arrived: bool = arrived
+        self.turns_in_transit: int = turns_in_transit

@@ -10,6 +10,7 @@ class Parser:
         self.end_hub_name: str = ""
         self.connections: list[dict[str, str | dict[str, str]]] = []
         self.connection_names: set[tuple[str, str]] = set()
+        self._any_zone_parsed: bool = False
 
     def _parse_zone_line(self, line: str, line_number: int,
                          zone_type: str) -> tuple[str, int, int,
@@ -28,6 +29,9 @@ class Parser:
                              f"must have name, x and y, "
                              f"got '{data}'")
         name, x, y = parts
+        if "-" in name:
+            raise ValueError(f"line {line_number}: zone name "
+                             f"'{name}' cannot contain dashes")
         try:
             x_int = int(x)
             y_int = int(y)
@@ -63,6 +67,10 @@ class Parser:
                     elif line.startswith("#"):
                         continue
                     elif line.startswith("nb_drones:"):
+                        if self._any_zone_parsed:
+                            raise ValueError(f"line {line_number}: "
+                                             f"nb_drones must be the"
+                                             f" first line")
                         _, num = line.split(":", 1)
                         num = num.strip()
                         if num.isdigit() and int(num) > 0:
@@ -80,6 +88,7 @@ class Parser:
                         self.zones[name] = {"x": x_int, "y": y_int,
                                             "metadata": meta_dict}
                         self.start_hub_name = name
+                        self._any_zone_parsed = True
                     elif line.startswith("end_hub:"):
                         name, x_int, y_int, meta_dict = self._parse_zone_line(
                             line, line_number, "end_hub")
@@ -89,11 +98,13 @@ class Parser:
                         self.zones[name] = {"x": x_int, "y": y_int,
                                             "metadata": meta_dict}
                         self.end_hub_name = name
+                        self._any_zone_parsed = True
                     elif line.startswith("hub:"):
                         name, x_int, y_int, meta_dict = self._parse_zone_line(
                             line, line_number, "hub")
                         self.zones[name] = {"x": x_int, "y": y_int,
                                             "metadata": meta_dict}
+                        self._any_zone_parsed = True
                     elif line.startswith("connection:"):
                         _, data = line.split(":", 1)
                         data = data.strip()
@@ -152,13 +163,16 @@ class Parser:
                 y_val = zone_data["y"]
                 if (isinstance(zone_meta, dict) and isinstance(x_val, int)
                         and isinstance(y_val, int)):
+                    is_start_or_end = (name == self.start_hub_name
+                                       or name == self.end_hub_name)
                     zone = Zone(
                         name=name,
                         x=x_val,
                         y=y_val,
                         zone_type=zone_meta.get("zone", "normal"),
                         color=zone_meta.get("color", None),
-                        max_drones=int(zone_meta.get("max_drones", 1))
+                        max_drones=1 if is_start_or_end else int(
+                            zone_meta.get("max_drones", 1))
                     )
                     zones_obj[name] = zone
             connections_obj: list[Connection] = []

@@ -17,4 +17,9 @@ if not path:
     sys.exit(1)
 
 simulator = Simulator(graph, path)
-simulator.run()
+if "--visual" in sys.argv:
+    from visualizer import Visualizer
+    viz = Visualizer(graph, path)
+    simulator.run_visual(viz)
+else:
+    simulator.run()

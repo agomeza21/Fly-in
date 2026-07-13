@@ -1,4 +1,5 @@
-from models import Graph, Zone, Drone, Connection
+from models import Graph, Zone, Drone
+
 
 class Simulator:
     def __init__(self, graph: Graph, path: list[Zone]) -> None:
@@ -12,13 +13,15 @@ class Simulator:
             )
             self.drones.append(drone)
 
-
     def run(self) -> None:
         while not all(drone.arrived for drone in self.drones):
             movements: list[str] = []
             zone_occupancy: dict[str, int] = {}
             for zone_name in self.graph.zones:
                 zone_occupancy[zone_name] = 0
+            for drone in self.drones:
+                if not drone.arrived:
+                    zone_occupancy[drone.current_zone.name] += 1
             conn_occupancy: dict[tuple[str, str], int] = {}
             for conn in self.graph.connections:
                 conn_occupancy[(conn.zone1.name, conn.zone2.name)] = 0
@@ -27,7 +30,17 @@ class Simulator:
                     continue
                 if drone.path_index + 1 < len(self.path):
                     next_zone = self.path[drone.path_index + 1]
-                if zone_occupancy[next_zone.name] < next_zone.max_drones:
+                else:
+                    continue
+                if drone.current_zone.zone_type == "restricted":
+                    if drone.turns_in_transit < 1:
+                        drone.turns_in_transit += 1
+                        continue
+                    else:
+                        drone.turns_in_transit = 0
+                is_end = next_zone.name == self.graph.end_hub.name
+                if (is_end or zone_occupancy[next_zone.name]
+                        < next_zone.max_drones):
                     conn_key = (drone.current_zone.name, next_zone.name)
                     conn_key_rev = (next_zone.name, drone.current_zone.name)
                     if conn_key in conn_occupancy:
@@ -38,10 +51,22 @@ class Simulator:
                         key = conn_key
                     conn_capacity = 1
                     for conn in self.graph.connections:
-                        if ((conn.zone1.name == drone.current_zone
+                        if ((conn.zone1.name == drone.current_zone.name
                              and conn.zone2.name == next_zone.name)
-                             or (conn.zone2.name == drone.current_zone.name
-                             and conn.zone1.name == next_zone.name)):
+                            or (conn.zone2.name == drone.current_zone.name
+                                and conn.zone1.name == next_zone.name)):
                             conn_capacity = conn.max_link_capacity
                             break
-                    if conn_capacity.get(key, 0) < conn_capacity:
+                    if conn_occupancy.get(key, 0) < conn_capacity:
+                        zone_occupancy[drone.current_zone.name] -= 1
+                        zone_occupancy[next_zone.name] += 1
+                        conn_occupancy[key] += 1
+                        movements.append(f"D{drone.drone_id}-{next_zone.name}")
+                        drone.current_zone = next_zone
+                        drone.path_index += 1
+                        if next_zone.name == self.graph.end_hub.name:
+                            drone.arrived = True
+                else:
+                    pass
+            if movements:
+                print(" ".join(movements))

@@ -9,3 +9,11 @@ lo he probado y hay ciertas cosas que no me gustan:
 4. no me gusta mucho como sse ven los drones. son triangulos feos y los ids enima estan en rojo que no se ve bien porque choca con los exagonos. hay que buscar una forma de que se vea bien y bonito.
 
 de momento estas son las cosas que me gustaria cambiar. luego cuando este arreglado esto igual se me ocurren mas cosas.
+
+
+IMPORTANTE exigencias subject:
+1. hay que hacer que se repartan los drones en diferentes rutas.
+2. hacer quer funcione bien lo de la zona restricted.
+3. Docstrings
+4. Readme
+5. MAkefile

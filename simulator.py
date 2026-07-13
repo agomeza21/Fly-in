@@ -14,7 +14,9 @@ class Simulator:
             self.drones.append(drone)
 
     def run(self) -> None:
+        total_turns: int = 0
         while not all(drone.arrived for drone in self.drones):
+            total_turns += 1
             movements: list[str] = []
             zone_occupancy: dict[str, int] = {}
             for zone_name in self.graph.zones:
@@ -70,3 +72,4 @@ class Simulator:
                     pass
             if movements:
                 print(" ".join(movements))
+        print(f"Simulation completed in {total_turns} turns")

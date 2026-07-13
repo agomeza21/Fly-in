@@ -1,0 +1,11 @@
+lo he probado y hay ciertas cosas que no me gustan:
+
+1.los nombres de las zonas siguen estando encima de los hexagonos en vez de debajo como habiamos dicho.
+
+2.por alguna razon he puesto que dependiendo de que tpo de zona sea tenga un color u otro. eso lo quiero quitar ya que no tiene sentido. el color nos dicen el que es y si no nos dan un color poemos uno por defecto. el tipo de zona no debe afectar al color de la zona.
+
+3.no entiendo muy bien porque hay un punto rojo en itad de las lineas de conexion.
+
+4. no me gusta mucho como sse ven los drones. son triangulos feos y los ids enima estan en rojo que no se ve bien porque choca con los exagonos. hay que buscar una forma de que se vea bien y bonito.
+
+de momento estas son las cosas que me gustaria cambiar. luego cuando este arreglado esto igual se me ocurren mas cosas.

@@ -11,10 +11,12 @@ class Visualizer:
         self.current_turn: int = 0
         self.speed: int = 800
         self.paused: bool = False
+        self.finished: bool = False
+        self.panel_width: int = 320
 
         self.root = tk.Tk()
         self.root.title("Fly-in Simulator")
-        self.root.geometry("1200x700")
+        self._maximize_window()
         self.root.configure(bg="#1a1a2e")
 
         self.canvas = tk.Canvas(self.root, bg="#1a1a2e",
@@ -22,16 +24,28 @@ class Visualizer:
         self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         self._build_side_panel()
+        self.root.update_idletasks()
         self._compute_positions()
 
+    def _maximize_window(self) -> None:
+        try:
+            self.root.state("zoomed")
+        except tk.TclError:
+            try:
+                self.root.attributes("-zoomed", True)
+            except tk.TclError:
+                sw = self.root.winfo_screenwidth()
+                sh = self.root.winfo_screenheight()
+                self.root.geometry(f"{sw}x{sh}+0+0")
+
     def _build_side_panel(self) -> None:
-        panel = tk.Frame(self.root, bg="#16213e", width=250)
+        panel = tk.Frame(self.root, bg="#16213e", width=self.panel_width)
         panel.pack(side=tk.RIGHT, fill=tk.Y)
         panel.pack_propagate(False)
 
         tk.Label(panel, text="FLY-IN SIMULATOR",
                  bg="#16213e", fg="#e94560",
-                 font=("Courier", 14, "bold")).pack(pady=20)
+                 font=("Courier", 11, "bold")).pack(pady=20)
 
         self.turn_label = tk.Label(panel, text="Turn: 0",
                                    bg="#16213e", fg="white",
@@ -77,10 +91,27 @@ class Visualizer:
         self.speed = int(val)
 
     def _toggle_pause(self) -> None:
+        if self.finished:
+            self._restart_simulation()
+            return
         self.paused = not self.paused
         self.pause_btn.config(
             text="▶ PLAY" if self.paused else "⏸ PAUSE"
         )
+
+    def _restart_simulation(self) -> None:
+        for drone in self.drones:
+            drone.current_zone = self.graph.start_hub
+            drone.path_index = 0
+            drone.arrived = False
+            drone.turns_in_transit = 0
+        self.current_turn = 0
+        self.finished = False
+        self.paused = False
+        self.pause_btn.config(text="⏸ PAUSE")
+        self._draw()
+        self._update_panel(0)
+        self._schedule_next()
 
     def _compute_positions(self) -> None:
         self.positions: dict[str, tuple[float, float]] = {}
@@ -90,17 +121,20 @@ class Visualizer:
         min_y = min(c[1] for c in coords)
         max_y = max(c[1] for c in coords)
 
+        canvas_w = self.canvas.winfo_width() or 950
+        canvas_h = self.canvas.winfo_height() or 700
+
         margin = 100
-        w = 950 - 2 * margin
-        h = 700 - 2 * margin
+        w = canvas_w - 2 * margin
+        h = canvas_h - 2 * margin
 
         for name, zone in self.graph.zones.items():
             if max_x == min_x:
-                px = 950 / 2
+                px = canvas_w / 2
             else:
                 px = margin + (zone.x - min_x) / (max_x - min_x) * w
             if max_y == min_y:
-                py = 700 / 2
+                py = canvas_h / 2
             else:
                 py = margin + (zone.y - min_y) / (max_y - min_y) * h
             self.positions[name] = (px, py)
@@ -119,7 +153,7 @@ class Visualizer:
             color_map: dict[str, str] = {
                 "red": "#e94560",
                 "green": "#2d6a4f",
-                "blue": "#1d3557",
+                "blue": "#4cc9f0",
                 "yellow": "#f4a261",
                 "gray": "#6c757d",
                 "orange": "#e76f51",
@@ -226,8 +260,10 @@ class Visualizer:
             self._update_panel(arrived)
             self.root.after(self.speed, self._schedule_next)
         else:
+            self.finished = True
             self._draw()
             self._update_panel(arrived)
             self.turn_label.config(
                 text=f"Done! {self.current_turn} turns"
             )
+            self.pause_btn.config(text="↻ REPLAY")

@@ -13,11 +13,12 @@ class Visualizer:
         self.paused: bool = False
         self.finished: bool = False
         self.panel_width: int = 320
+        self.arrived_turn: dict[int, int] = {}
 
         self.root = tk.Tk()
         self.root.title("Fly-in Simulator")
         self._maximize_window()
-        self.root.configure(bg="#1a1a2e")
+        self.root.configure(bg="#515162")
 
         self.canvas = tk.Canvas(self.root, bg="#1a1a2e",
                                 highlightthickness=0)
@@ -150,26 +151,36 @@ class Visualizer:
 
     def _zone_color(self, zone:  Zone) -> str:
         if zone.color:
-            color_map: dict[str, str] = {
-                "red": "#e94560",
-                "green": "#2d6a4f",
-                "blue": "#4cc9f0",
-                "yellow": "#f4a261",
-                "gray": "#6c757d",
-                "orange": "#e76f51",
-                "purple": "#7b2d8b",
-            }
-            return color_map.get(zone.color, "#0f3460")
-        type_map: dict[str, str] = {
-            "normal": "#0f3460",
-            "restricted": "#e94560",
-            "priority": "#2d6a4f",
-            "blocked": "#333333",
-        }
-        return type_map.get(zone.zone_type, "#0f3460")
+            try:
+                self.root.winfo_rgb(zone.color)
+                return zone.color
+            except tk.TclError:
+                return "#898989"
+        return "#898989"
+
+    def _text_color_for(self, bg_color: str) -> None:
+        try:
+            r, g, b = self.root.winfo_rgb(bg_color)
+            luminance = (r * 299 + g * 587 + b * 114) / (1000 * 65535)
+            return "#1a1a2e" if luminance > 0.5 else "white"
+        except tk.TclError:
+            return "white"
 
     def _draw(self) -> None:
         self.canvas.delete("all")
+
+        drones_by_zone: dict[str, list[Drone]] = {}
+        for drone in self.drones:
+            just_arrived = (
+                drone.arrived
+                and drone.drone_id in self.arrived_turn
+                and self.arrived_turn[drone.drone_id] == self.current_turn
+            )
+            if not drone.arrived or just_arrived:
+                zn = drone.current_zone.name
+                if zn not in drones_by_zone:
+                    drones_by_zone[zn] = []
+                drones_by_zone[zn].append(drone)
 
         for conn in self.graph.connections:
             x1, y1 = self.positions[conn.zone1.name]
@@ -178,11 +189,6 @@ class Visualizer:
             self.canvas.create_line(
                 x1, y1, x2, y2,
                 fill="#a8dadc", width=width, dash=(6, 4)
-            )
-            mx, my = (x1 + x2) / 2, (y1 + y2) / 2
-            self.canvas.create_oval(
-                mx - 3, my - 3, mx + 3, my + 3,
-                fill="#e94560", outline=""
             )
 
         for name, zone in self.graph.zones.items():
@@ -193,36 +199,51 @@ class Visualizer:
                 pts, fill=color,
                 outline="#a8dadc", width=2
             )
+            drones_here = drones_by_zone.get(name, [])
+            if drones_here:
+                ids = " ".join(f"D{d.drone_id}" for d in drones_here)
+                self.canvas.create_text(
+                    cx, cy,
+                    text=ids,
+                    fill=self._text_color_for(color),
+                    font=("Courier", 7, "bold")
+                )
             self.canvas.create_text(
-                cx, cy, text=name,
-                fill="white",
+                cx, cy + 45, text=name,
+                fill=self._text_color_for(color),
                 font=("Courier", 8, "bold")
             )
 
-        drones_by_zone: dict[str, list[Drone]] = {}
-        for drone in self.drones:
-            if not drone.arrived:
-                zn = drone.current_zone.name
-                if zn not in drones_by_zone:
-                    drones_by_zone[zn] = []
-                drones_by_zone[zn].append(drone)
-
         for zone_name, zone_drones in drones_by_zone.items():
             cx, cy = self.positions[zone_name]
+            n = len(zone_drones)
             for i, drone in enumerate(zone_drones):
-                offset_x = (i - len(zone_drones) / 2) * 15
+                offset_x = (i - (n - 1) / 2) * 40
                 dx = cx + offset_x
-                dy = cy - 45
-                self.canvas.create_polygon(
-                    [dx, dy - 10, dx - 7, dy + 7, dx + 7, dy + 7],
-                    fill="white", outline="#e94560", width=1
-                )
-                self.canvas.create_text(
-                    dx, dy + 15,
-                    text=f"D{drone.drone_id}",
-                    fill="#e94560",
-                    font=("Courier", 7, "bold")
-                )
+                dy = cy - 55
+                self._draw_drone(dx, dy, drone.drone_id)
+
+    def _draw_drone(self, cx: float, cy: float,
+                    drone_id: int) -> None:
+        arm = 14
+        rotor = 5
+        angles = [(-1, -1), (1, -1), (1, 1), (-1, 1)]
+        for dx, dy in angles:
+            ex = cx + dx * arm
+            ey = cy + dy * arm
+            self.canvas.create_line(
+                cx, cy, ex, ey,
+                fill="white", width=2
+            )
+            self.canvas.create_oval(
+                ex - rotor, ey - rotor,
+                ex + rotor, ey + rotor,
+                fill="#a8dadc", outline="white", width=1
+            )
+        self.canvas.create_oval(
+            cx - 6, cy - 6, cx + 6, cy + 6,
+            fill="white", outline="#1a1a2e", width=2
+        )
 
     def _update_panel(self, arrived: int) -> None:
         self.turn_label.config(text=f"Turn: {self.current_turn}")
@@ -256,6 +277,9 @@ class Visualizer:
             self.current_turn += 1
             if callable(self.turn_callback):
                 self.turn_callback()
+            for drone in self.drones:
+                if drone.arrived and drone.drone_id not in self.arrived_turn:
+                    self.arrived_turn[drone.drone_id] = self.current_turn
             self._draw()
             self._update_panel(arrived)
             self.root.after(self.speed, self._schedule_next)

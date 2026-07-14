@@ -35,10 +35,9 @@ class Graph:
 
 class Drone:
     def __init__(self, drone_id: int, current_zone: Zone,
-                 path_index: int = 0, arrived: bool = False,
-                 turns_in_transit: int = 0) -> None:
+                 path_index: int = 0, arrived: bool = False) -> None:
         self.drone_id: int = drone_id
         self.current_zone: Zone = current_zone
         self.path_index: int = path_index
         self.arrived: bool = arrived
-        self.turns_in_transit: int = turns_in_transit
+        self.in_transit_to: Zone | None = None

@@ -105,7 +105,8 @@ class Visualizer:
             drone.current_zone = self.graph.start_hub
             drone.path_index = 0
             drone.arrived = False
-            drone.turns_in_transit = 0
+            drone.in_transit_to = None
+        self.arrived_turn.clear()
         self.current_turn = 0
         self.finished = False
         self.paused = False
@@ -176,7 +177,8 @@ class Visualizer:
                 and drone.drone_id in self.arrived_turn
                 and self.arrived_turn[drone.drone_id] == self.current_turn
             )
-            if not drone.arrived or just_arrived:
+            if ((not drone.arrived or just_arrived) and
+                    drone.in_transit_to is None):
                 zn = drone.current_zone.name
                 if zn not in drones_by_zone:
                     drones_by_zone[zn] = []
@@ -210,15 +212,31 @@ class Visualizer:
                 )
             self.canvas.create_text(
                 cx, cy + 45, text=name,
-                fill=self._text_color_for(color),
+                fill="white",
                 font=("Courier", 8, "bold")
             )
+
+        for drone in self.drones:
+            if drone.arrived:
+                continue
+            if drone.in_transit_to is not None:
+                x1, y1 = self.positions[drone.current_zone.name]
+                x2, y2 = self.positions[drone.in_transit_to.name]
+                mx = (x1 + x2) / 2
+                my = (y1 + y2) / 2
+                self._draw_drone(mx, my, drone.drone_id)
+                self.canvas.create_text(
+                    mx, my + 50,
+                    text=f"D{drone.drone_id}",
+                    fill="white",
+                    font=("Courier", 7, "bold")
+                )
 
         for zone_name, zone_drones in drones_by_zone.items():
             cx, cy = self.positions[zone_name]
             n = len(zone_drones)
             for i, drone in enumerate(zone_drones):
-                offset_x = (i - (n - 1) / 2) * 40
+                offset_x = (i - (n - 1) / 2) * 30
                 dx = cx + offset_x
                 dy = cy - 55
                 self._draw_drone(dx, dy, drone.drone_id)

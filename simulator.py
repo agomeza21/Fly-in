@@ -95,7 +95,6 @@ class Simulator:
                 pass
         if movements:
             print(" ".join(movements))
-        return len(movements)
 
     def run_visual(self, visualizer: object) -> None:
         from visualizer import Visualizer

@@ -159,7 +159,7 @@ class Visualizer:
                 return "#898989"
         return "#898989"
 
-    def _text_color_for(self, bg_color: str) -> None:
+    def _text_color_for(self, bg_color: str) -> str:
         try:
             r, g, b = self.root.winfo_rgb(bg_color)
             luminance = (r * 299 + g * 587 + b * 114) / (1000 * 65535)

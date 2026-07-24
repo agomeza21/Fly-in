@@ -106,4 +106,3 @@ class Simulator:
         while not all(drone.arrived for drone in self.drones):
             total_turns += 1
             self.step()
-        print(f"Simulation completed in {total_turns} turns")

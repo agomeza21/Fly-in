@@ -1,6 +1,6 @@
 PYTHON = python3
 MAIN = main.py
-MAP = 01_the_impossible_dream.txt
+MAP ?= 02_simple_fork.txt
 
 .PHONY: install run debug clean lint lint-strict
 

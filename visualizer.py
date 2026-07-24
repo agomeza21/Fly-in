@@ -12,7 +12,7 @@ class Visualizer:
         self.speed: int = 800
         self.paused: bool = False
         self.finished: bool = False
-        self.panel_width: int = 320
+        self.panel_width: int = 220
         self.arrived_turn: dict[int, int] = {}
 
         self.root = tk.Tk()
@@ -25,19 +25,21 @@ class Visualizer:
         self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         self._build_side_panel()
+        self.canvas.bind("<Configure>", self._on_resize)
         self.root.update_idletasks()
         self._compute_positions()
 
     def _maximize_window(self) -> None:
+        sw = self.root.winfo_screenwidth()
+        sh = self.root.winfo_screenheight()
+        self.root.geometry(f"{sw}x{sh}+0+0")
         try:
-            self.root.state("zoomed")
+            self.root.attributes("-zoomed", True)
         except tk.TclError:
             try:
-                self.root.attributes("-zoomed", True)
+                self.root.state("zoomed")
             except tk.TclError:
-                sw = self.root.winfo_screenwidth()
-                sh = self.root.winfo_screenheight()
-                self.root.geometry(f"{sw}x{sh}+0+0")
+                pass
 
     def _build_side_panel(self) -> None:
         panel = tk.Frame(self.root, bg="#16213e", width=self.panel_width)
@@ -123,8 +125,13 @@ class Visualizer:
         min_y = min(c[1] for c in coords)
         max_y = max(c[1] for c in coords)
 
-        canvas_w = self.canvas.winfo_width() or 950
-        canvas_h = self.canvas.winfo_height() or 700
+        self.root.update_idletasks()
+        canvas_w = self.canvas.winfo_width()
+        canvas_h = self.canvas.winfo_height()
+        if canvas_w <= 1:
+            canvas_w = self.root.winfo_screenwidth() - self.panel_width
+        if canvas_h <= 1:
+            canvas_h = self.root.winfo_screenheight()
 
         margin = 100
         w = canvas_w - 2 * margin
@@ -193,10 +200,23 @@ class Visualizer:
                 fill="#a8dadc", width=width, dash=(6, 4)
             )
 
+        num_zones = len(self.graph.zones)
+        if num_zones > 25:
+            hex_radius = 18
+            font_size = 6
+            text_offset = 18
+        elif num_zones > 12:
+            hex_radius = 28
+            font_size = 8
+            text_offset = 32
+        else:
+            hex_radius = 40
+            font_size = 10
+            text_offset = 48
         for name, zone in self.graph.zones.items():
             cx, cy = self.positions[name]
             color = self._zone_color(zone)
-            pts = self._hex_points(cx, cy, 35)
+            pts = self._hex_points(cx, cy, hex_radius)
             self.canvas.create_polygon(
                 pts, fill=color,
                 outline="#a8dadc", width=2
@@ -210,10 +230,11 @@ class Visualizer:
                     fill=self._text_color_for(color),
                     font=("Courier", 7, "bold")
                 )
+            text_offset = 22 if num_zones > 25 else 45
             self.canvas.create_text(
-                cx, cy + 45, text=name,
+                cx, cy + text_offset, text=name,
                 fill="white",
-                font=("Courier", 8, "bold")
+                font=("Courier", font_size, "bold")
             )
 
         for drone in self.drones:
@@ -224,34 +245,53 @@ class Visualizer:
                 x2, y2 = self.positions[drone.in_transit_to.name]
                 mx = (x1 + x2) / 2
                 my = (y1 + y2) / 2
-                self._draw_drone(mx, my, drone.drone_id)
+                self._draw_drone(mx, my)
+                text_offset_transit = 25 if num_zones > 25 else 50
                 self.canvas.create_text(
-                    mx, my + 50,
+                    mx, my + text_offset_transit,
                     text=f"D{drone.drone_id}",
                     fill="white",
-                    font=("Courier", 7, "bold")
+                    font=("Courier", font_size, "bold")
                 )
 
         for zone_name, zone_drones in drones_by_zone.items():
             cx, cy = self.positions[zone_name]
             n = len(zone_drones)
+            if num_zones > 25:
+                spacing, y_offset = 12, 18
+            elif num_zones > 12:
+                spacing, y_offset = 22, 38
+            else:
+                spacing, y_offset = 30, 55
             for i, drone in enumerate(zone_drones):
-                offset_x = (i - (n - 1) / 2) * 30
+                offset_x = (i - (n - 1) / 2) * spacing
                 dx = cx + offset_x
-                dy = cy - 55
-                self._draw_drone(dx, dy, drone.drone_id)
+                dy = cy - y_offset
+                self._draw_drone(dx, dy)
 
-    def _draw_drone(self, cx: float, cy: float,
-                    drone_id: int) -> None:
-        arm = 14
-        rotor = 5
+    def _on_resize(self, event: tk.Event) -> None:
+        if event.width > 100 and event.height > 100:
+            self._compute_positions()
+            self._draw()
+
+    def _draw_drone(self, cx: float, cy: float) -> None:
+        num_zones = len(self.graph.zones)
+        if num_zones > 25:
+            scale = 0.5
+        elif num_zones > 12:
+            scale = 0.8
+        else:
+            scale = 1.2
+        arm = 14 * scale
+        rotor = 5 * scale
+        body = 6 * scale
         angles = [(-1, -1), (1, -1), (1, 1), (-1, 1)]
         for dx, dy in angles:
             ex = cx + dx * arm
             ey = cy + dy * arm
             self.canvas.create_line(
                 cx, cy, ex, ey,
-                fill="white", width=2
+                fill="white", width=max(1, int(2 * scale))
             )
             self.canvas.create_oval(
                 ex - rotor, ey - rotor,
@@ -259,8 +299,8 @@ class Visualizer:
                 fill="#a8dadc", outline="white", width=1
             )
         self.canvas.create_oval(
-            cx - 6, cy - 6, cx + 6, cy + 6,
-            fill="white", outline="#1a1a2e", width=2
+            cx - body, cy - body, cx + body, cy + body,
+            fill="white", outline="#1a1a2e", width=max(1, int(2 * scale))
         )
 
     def _update_panel(self, arrived: int) -> None:

@@ -47,8 +47,8 @@ class Pathfinder:
                 new_cost = current_cost + move_cost
                 new_hop = current_hops + move_hop
                 if ((new_cost, new_hop)
-                        (costs[neighbor_zone.name],
-                        non_priority_hops[neighbor_zone.name])):
+                        < (costs[neighbor_zone.name],
+                           non_priority_hops[neighbor_zone.name])):
                     costs[neighbor_zone.name] = new_cost
                     non_priority_hops[neighbor_zone.name] = new_hop
                     came_from[neighbor_zone.name] = current_name

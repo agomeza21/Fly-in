@@ -29,7 +29,7 @@ class Parser:
         for pair in metadata_pairs:
             if "=" not in pair:
                 raise ValueError(f"line {line_number}: invalid metadata"
-                                 f" format '{pair}")
+                                 f" format '{pair}'")
             key, value = pair.split("=", 1)
             meta_dict[key] = value
         return new_data, meta_dict

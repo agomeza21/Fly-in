@@ -11,18 +11,35 @@ class Parser:
         self.connections: list[dict[str, str | dict[str, str]]] = []
         self.connection_names: set[tuple[str, str]] = set()
         self._any_zone_parsed: bool = False
+        self._nb_drones_set: bool = False
+
+    def _parse_metadata(self, data: str,
+                        line_number: int) -> tuple[str, dict[str, str]]:
+        found = data.find("[")
+        if found == -1:
+            return data, {}
+        new_data, metadata = data.split("[", 1)
+        metadata = metadata.strip()
+        if not metadata.endswith("]"):
+            raise ValueError(f"line {line_number}: metadata block is "
+                             f"missing a closing ']'")
+        metadata = metadata[:-1]
+        metadata_pairs = metadata.split()
+        meta_dict = {}
+        for pair in metadata_pairs:
+            if "=" not in pair:
+                raise ValueError(f"line {line_number}: invalid metadata"
+                                 f" format '{pair}")
+            key, value = pair.split("=", 1)
+            meta_dict[key] = value
+        return new_data, meta_dict
 
     def _parse_zone_line(self, line: str, line_number: int,
                          zone_type: str) -> tuple[str, int, int,
                                                   dict[str, str]]:
         _, data = line.split(":", 1)
         data = data.strip()
-        found = data.find("[")
-        if found != -1:
-            new_data, metadata = data.split("[", 1)
-        else:
-            new_data = data
-            metadata = ""
+        new_data, meta_dict = self._parse_metadata(data, line_number)
         parts = new_data.split()
         if len(parts) != 3:
             raise ValueError(f"line {line_number}: {zone_type} "
@@ -39,15 +56,6 @@ class Parser:
             raise ValueError(f"line {line_number}: x and y "
                              f"must be valid integers, "
                              f"got '{x}', '{y}'")
-        metadata = metadata.rstrip("]")
-        metadata_pairs = metadata.split()
-        meta_dict = {}
-        for pair in metadata_pairs:
-            if "=" not in pair:
-                raise ValueError(f"line {line_number}: invalid"
-                                 f" metadata format '{pair}'")
-            key, value = pair.split("=", 1)
-            meta_dict[key] = value
         if ("zone" in meta_dict and meta_dict["zone"]
                 not in Zone.VALID_ZONE_TYPES):
             raise ValueError(f"line {line_number}: invalid zone type "
@@ -77,10 +85,15 @@ class Parser:
                             raise ValueError(f"line {line_number}: "
                                              f"nb_drones must be the"
                                              f" first line")
+                        if self._nb_drones_set:
+                            raise ValueError(f"line {line_number}: "
+                                             f"nb_drones is already "
+                                             f"defined")
                         _, num = line.split(":", 1)
                         num = num.strip()
                         if num.isdigit() and int(num) > 0:
                             self.nb_drones = int(num)
+                            self._nb_drones_set = True
                         else:
                             raise ValueError(f"line {line_number}: nb_drones "
                                              f"must be a positive integer, "
@@ -114,12 +127,8 @@ class Parser:
                     elif line.startswith("connection:"):
                         _, data = line.split(":", 1)
                         data = data.strip()
-                        found = data.find("[")
-                        if found != -1:
-                            new_data, metadata = data.split("[", 1)
-                        else:
-                            new_data = data
-                            metadata = ""
+                        new_data, meta_dict = self._parse_metadata(
+                            data, line_number)
                         new_data = new_data.strip()
                         conn_parts = new_data.split("-", 1)
                         if (len(conn_parts) != 2 or conn_parts[0] == ""
@@ -140,15 +149,6 @@ class Parser:
                             raise ValueError(f"line {line_number}: connection "
                                              f"'{zone1}-{zone2}' is already "
                                              f"defined")
-                        metadata = metadata.rstrip("]")
-                        metadata_pairs = metadata.split()
-                        meta_dict = {}
-                        for pair in metadata_pairs:
-                            if "=" not in pair:
-                                raise ValueError(f"line {line_number}: invalid"
-                                                 f" metadata format '{pair}'")
-                            key, value = pair.split("=", 1)
-                            meta_dict[key] = value
                         self.connection_names.add((zone1, zone2))
                         if ("max_link_capacity" in meta_dict
                             and not (meta_dict["max_link_capacity"].isdigit()

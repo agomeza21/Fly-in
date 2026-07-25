@@ -60,6 +60,8 @@ class Simulator:
                      < next_zone.max_drones)):
                     conn_occupancy[key] += 1
                     zone_occupancy[drone.current_zone.name] -= 1
+                    if not is_end:
+                        zone_occupancy[next_zone.name] += 1
                     conn_name = f"{drone.current_zone.name}-{next_zone.name}"
                     movements.append(f"D{drone.drone_id}-{conn_name}")
                     drone.in_transit_to = next_zone

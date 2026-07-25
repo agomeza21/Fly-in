@@ -52,6 +52,12 @@ class Parser:
                 not in Zone.VALID_ZONE_TYPES):
             raise ValueError(f"line {line_number}: invalid zone type "
                              f"'{meta_dict['zone']}'")
+        if (zone_type == "hub" and "max_drones" in meta_dict
+            and not (meta_dict["max_drones"].isdigit()
+                     and int(meta_dict["max_drones"]) > 0)):
+            raise ValueError(f"line {line_number}: max_drones must be a "
+                             f"positive integer, got "
+                             f"'{meta_dict['max_drones']}'")
         if name in self.zones:
             raise ValueError(f"line {line_number}: zone name"
                              f" '{name}' is already used")
@@ -144,6 +150,12 @@ class Parser:
                             key, value = pair.split("=", 1)
                             meta_dict[key] = value
                         self.connection_names.add((zone1, zone2))
+                        if ("max_link_capacity" in meta_dict
+                            and not (meta_dict["max_link_capacity"].isdigit()
+                                     and int(meta_dict["max_link_capacity"]) > 0)):
+                            raise ValueError(f"line {line_number}: max_link_capacity must be "
+                                             f"a positive integer, got "
+                                             f"'{meta_dict['max_link_capacity']}'")
                         self.connections.append({"zone1": zone1,
                                                  "zone2": zone2,
                                                  "metadata": meta_dict})

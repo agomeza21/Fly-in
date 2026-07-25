@@ -27,6 +27,15 @@ class Simulator:
         for conn in self.graph.connections:
             conn_occupancy[(conn.zone1.name, conn.zone2.name)] = 0
         for drone in self.drones:
+            if drone.arrived or drone.in_transit_to is None:
+                continue
+            conn_key = (drone.current_zone.name, drone.in_transit_to.name)
+            conn_key_rev = (drone.in_transit_to.name, drone.current_zone.name)
+            if conn_key in conn_occupancy:
+                conn_occupancy[conn_key] += 1
+            else:
+                conn_occupancy[conn_key_rev] += 1
+        for drone in self.drones:
             if drone.arrived:
                 continue
             if drone.path_index + 1 < len(self.path):

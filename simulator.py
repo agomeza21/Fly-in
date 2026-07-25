@@ -21,6 +21,8 @@ class Simulator:
         for drone in self.drones:
             if not drone.arrived and drone.in_transit_to is None:
                 zone_occupancy[drone.current_zone.name] += 1
+            if not drone.arrived and drone.in_transit_to is not None:
+                zone_occupancy[drone.in_transit_to.name] += 1
         conn_occupancy: dict[tuple[str, str], int] = {}
         for conn in self.graph.connections:
             conn_occupancy[(conn.zone1.name, conn.zone2.name)] = 0
@@ -33,12 +35,8 @@ class Simulator:
                 continue
             if drone.in_transit_to is not None:
                 dest = drone.in_transit_to
-                is_end = dest.name == self.graph.end_hub.name
-                if not is_end and zone_occupancy[dest.name] >= dest.max_drones:
-                    continue
                 drone.current_zone = dest
                 drone.in_transit_to = None
-                zone_occupancy[dest.name] += 1
                 movements.append(f"D{drone.drone_id}-{dest.name}")
                 drone.path_index += 1
                 if dest.name == self.graph.end_hub.name:
@@ -56,7 +54,10 @@ class Simulator:
                             and conn.zone1.name == next_zone.name)):
                         conn_capacity = conn.max_link_capacity
                         break
-                if conn_occupancy.get(key, 0) < conn_capacity:
+                is_end = next_zone.name == self.graph.end_hub.name
+                if (conn_occupancy.get(key, 0) < conn_capacity and
+                    (is_end or zone_occupancy[next_zone.name]
+                     < next_zone.max_drones)):
                     conn_occupancy[key] += 1
                     zone_occupancy[drone.current_zone.name] -= 1
                     conn_name = f"{drone.current_zone.name}-{next_zone.name}"

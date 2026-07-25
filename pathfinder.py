@@ -1,5 +1,6 @@
 from models import Graph, Zone, Connection
 import heapq
+import sys
 
 
 class Pathfinder:
@@ -14,19 +15,22 @@ class Pathfinder:
             adjacency[conn.zone1.name].append((conn.zone2, conn))
             adjacency[conn.zone2.name].append((conn.zone1, conn))
 
-        queue: list[tuple[int, str]] = [(0, graph.start_hub.name)]
+        queue: list[tuple[float, int, str]] = [(0, 0, graph.start_hub.name)]
 
         costs: dict[str, float] = {}
+        non_priority_hops: dict[str, int] = {}
         for zone_name in graph.zones:
             costs[zone_name] = float("inf")
+            non_priority_hops[zone_name] = sys.maxsize
         costs[graph.start_hub.name] = 0
+        non_priority_hops[graph.start_hub.name] = 0
 
         came_from: dict[str, str] = {}
 
         visited: set[str] = set()
 
         while queue:
-            current_cost, current_name = heapq.heappop(queue)
+            current_cost, current_hops, current_name = heapq.heappop(queue)
             if current_name in visited:
                 continue
             visited.add(current_name)
@@ -39,11 +43,17 @@ class Pathfinder:
                     move_cost = 2
                 else:
                     move_cost = 1
+                move_hop = 0 if neighbor_zone.zone_type == "priority" else 1
                 new_cost = current_cost + move_cost
-                if new_cost < costs[neighbor_zone.name]:
+                new_hop = current_hops + move_hop
+                if ((new_cost, new_hop)
+                        (costs[neighbor_zone.name],
+                        non_priority_hops[neighbor_zone.name])):
                     costs[neighbor_zone.name] = new_cost
+                    non_priority_hops[neighbor_zone.name] = new_hop
                     came_from[neighbor_zone.name] = current_name
-                    heapq.heappush(queue, (new_cost, neighbor_zone.name))
+                    heapq.heappush(
+                        queue, (new_cost, new_hop, neighbor_zone.name))
 
         if (graph.end_hub.name not in came_from
                 and graph.end_hub.name != graph.start_hub.name):

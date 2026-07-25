@@ -152,10 +152,12 @@ class Parser:
                         self.connection_names.add((zone1, zone2))
                         if ("max_link_capacity" in meta_dict
                             and not (meta_dict["max_link_capacity"].isdigit()
-                                     and int(meta_dict["max_link_capacity"]) > 0)):
-                            raise ValueError(f"line {line_number}: max_link_capacity must be "
-                                             f"a positive integer, got "
-                                             f"'{meta_dict['max_link_capacity']}'")
+                                     and int(meta_dict["max_link_capacity"])
+                                     > 0)):
+                            raise ValueError(
+                                f"line {line_number}: max_link_capacity "
+                                f"must be a positive integer, got "
+                                f"'{meta_dict['max_link_capacity']}'")
                         self.connections.append({"zone1": zone1,
                                                  "zone2": zone2,
                                                  "metadata": meta_dict})

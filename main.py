@@ -24,15 +24,15 @@ class FlyInApp:
 
         graph = Parser().parse(map_file)
 
-        path = Pathfinder().find_path(graph)
-        if not path:
+        paths = Pathfinder().find_paths(graph)
+        if not paths:
             print("Error: no path found between start and end hub")
             sys.exit(1)
 
-        simulator = Simulator(graph, path)
+        simulator = Simulator(graph, paths)
         if "--visual" in self.argv:
             from visualizer import Visualizer
-            viz = Visualizer(graph, path)
+            viz = Visualizer(graph, paths)
             simulator.run_visual(viz)
         else:
             simulator.run()

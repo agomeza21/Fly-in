@@ -1,17 +1,46 @@
 from models import Graph, Zone, Drone
+import sys
 
 
 class Simulator:
-    def __init__(self, graph: Graph, path: list[Zone]) -> None:
+    def __init__(self, graph: Graph, paths: list[list[Zone]]) -> None:
         self.graph: Graph = graph
-        self.path: list[Zone] = path
+        self.paths: list[list[Zone]] = paths
         self.drones: list[Drone] = []
-        for i in range(graph.nb_drones):
+        assigned_indexes = self._assign_drones_to_paths(graph, paths)
+        for i, path_index in enumerate(assigned_indexes):
             drone = Drone(
                 drone_id=i + 1,
-                current_zone=graph.start_hub
+                current_zone=graph.start_hub,
+                path=paths[path_index]
             )
             self.drones.append(drone)
+
+    def _path_capacity(self, graph: Graph, path: list[Zone]) -> int:
+        capacity = sys.maxsize
+        for zone in path:
+            if zone is graph.start_hub or zone is graph.end_hub:
+                continue
+            capacity = min(capacity, zone.max_drones)
+        for i in range(len(path) - 1):
+            conn = graph.get_connection(path[i].name, path[i + 1].name)
+            if conn is not None:
+                capacity = min(capacity, conn.max_link_capacity)
+        return capacity
+
+    def _assign_drones_to_paths(self, graph: Graph,
+                                paths: list[list[Zone]]) -> list[int]:
+        weights = [self._path_capacity(graph, path) for path in paths]
+        total_weight = sum(weights)
+        current_weights = [0] * len(paths)
+        assigned_indexes: list[int] = []
+        for _ in range(graph.nb_drones):
+            for i in range(len(paths)):
+                current_weights[i] += weights[i]
+            chosen = current_weights.index(max(current_weights))
+            current_weights[chosen] -= total_weight
+            assigned_indexes.append(chosen)
+        return assigned_indexes
 
     def step(self) -> None:
         movements: list[str] = []
@@ -38,8 +67,8 @@ class Simulator:
         for drone in self.drones:
             if drone.arrived:
                 continue
-            if drone.path_index + 1 < len(self.path):
-                next_zone = self.path[drone.path_index + 1]
+            if drone.path_index + 1 < len(drone.path):
+                next_zone = drone.path[drone.path_index + 1]
             else:
                 continue
             if drone.in_transit_to is not None:

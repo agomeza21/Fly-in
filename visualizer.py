@@ -4,9 +4,9 @@ from models import Graph, Zone, Drone
 
 
 class Visualizer:
-    def __init__(self, graph: Graph, path: list[Zone]) -> None:
+    def __init__(self, graph: Graph, paths: list[list[Zone]]) -> None:
         self.graph: Graph = graph
-        self.path: list[Zone] = path
+        self.paths: list[list[Zone]] = paths
         self.drones: list[Drone] = []
         self.current_turn: int = 0
         self.speed: int = 800

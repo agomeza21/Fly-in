@@ -32,12 +32,24 @@ class Graph:
         self.start_hub: Zone = start_hub
         self.end_hub: Zone = end_hub
 
+    def get_connection(self, zone_a_name: str,
+                       zone_b_name: str) -> Connection | None:
+        for conn in self.connections:
+            if ((conn.zone1.name == zone_a_name
+                 and conn.zone2.name == zone_b_name)
+                or (conn.zone2.name == zone_a_name
+                    and conn.zone1.name == zone_b_name)):
+                return conn
+        return None
+
 
 class Drone:
     def __init__(self, drone_id: int, current_zone: Zone,
-                 path_index: int = 0, arrived: bool = False) -> None:
+                 path: list[Zone], path_index: int = 0,
+                 arrived: bool = False) -> None:
         self.drone_id: int = drone_id
         self.current_zone: Zone = current_zone
+        self.path: list[Zone] = path
         self.path_index: int = path_index
         self.arrived: bool = arrived
         self.in_transit_to: Zone | None = None

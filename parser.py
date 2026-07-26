@@ -3,7 +3,48 @@ from models import Zone, Connection, Graph
 
 
 class Parser:
+    """Reads a map file and turns it into a Graph object.
+
+    The map file format is described in the subject: it has one
+    "nb_drones" line, one line per zone (start_hub, end_hub, hub),
+    and one line per connection between two zones. This class reads
+    the file line by line, checks that everything is written
+    correctly, and builds the Zone, Connection and Graph objects
+    that the rest of the program needs.
+
+    If anything in the file is wrong (a missing field, a bad
+    number, a zone used before it is defined, and son on), parsing
+    stops and a clear error message is printed, with the line
+    number where the problem is, and the whole program exits.
+
+    Attributes:
+        nb_drones (int): The number of drones read from the map
+            file. Stays 0 until "nb_drones:" line is read.
+        zones (dict[str, dict]): The zones read so far, keyed by
+            their name. Each value is a small dict with the zone's
+            x, y and metadata, kept in tjis "raw" form until
+            parse() finishes reading the whole file and turns them
+            into real Zone objects.
+        start_hub_name (str): The name of the start_hub zone, or an
+            empty string if it has not been found yet.
+        end_hub_name (str): The name of the end_hub_zone, or an
+            empty string if it has not been found yet.
+        connections (list[dict]): The connections read so far, kept
+            in the same "raw" form as zones, before they are turned
+            into real Connection objects.
+        connection_names (set[tuple[str, str]]): Te (zone1, zone2)
+            name pairs already used by a connection. Used to detect
+            duplicate connections, since "a-b" and "b-a" both count
+            as the same connection.
+    """
     def __init__(self) -> None:
+        """Creates a new, empty Parser, ready to read a map file.
+
+        All the counters and containers start empty. The two
+        private flags (_any_zone_parsed and _nb_drones_set) are
+        used only to enforce two rules from the subject: nb_drones
+        must be the first line, and it can only be defined once.
+        """
         self.nb_drones: int = 0
         self.zones: dict[str, dict[str, int | dict[str, str]]] = {}
         self.start_hub_name: str = ""
@@ -15,6 +56,36 @@ class Parser:
 
     def _parse_metadata(self, data: str,
                         line_number: int) -> tuple[str, dict[str, str]]:
+        """Splits a line into its main part and its metadata part.
+
+        Metadata is the optional part written inside square
+        brackets, for example "[zone=restricted color=red]". This
+        method finds that part (if there is one), checks that it is
+        written correctly, and turns it into a dict of key-value
+        pairs. To be correct, the metadata block must:
+        - End with a closing "]".
+        -Have every entry written as key=value, separated by
+        spaces (for example "zone=restricted color=red").
+
+        Args:
+            data (str): The part of the line after the "type:"
+                prefix (for example, everything after "hub:").
+            line_number (int): THe line number in the map file,
+                used only to build clear error messages.
+        
+        Returns:
+            tuple[str, dict[str, str]]: A pair with two values:
+                first,the text that came before the "[" (still not
+                split into name/x/y or zone1/zone2, that happens
+                later); second, a dict with the metadata keys and
+                values. If there was no "[" at all in data, the
+                dict is simply empty.
+
+        Raises:
+            ValueError: If the metadata block does not end with
+                "]", or if one of its entries is not written as
+                key=value.
+        """
         found = data.find("[")
         if found == -1:
             return data, {}
@@ -37,6 +108,41 @@ class Parser:
     def _parse_zone_line(self, line: str, line_number: int,
                          zone_type: str) -> tuple[str, int, int,
                                                   dict[str, str]]:
+        """Parses one zone line: "strat_hub:", "end_hub:" or "hub:".
+
+        This method handles the part that is common to all three
+        zone line types: reading the name, x and y, splitting off
+        the metadata (using _parse_metadata), and checking that
+        the zone type and max_drones metadata (if present) are
+        valid. It does NOT decide what to do with the parsed data
+        (that is done by the caller, in parse()) - it only reads
+        and validates a single line.
+
+        Args:
+            line (str): The full line from the map file, including
+                its "start_hub:", "end_hub:" or "hub:" prefix.
+            line_number (int): The line number in the map file,
+                used to build clear error messages.
+            zone_type (str): Which kind of zone line this is:
+                "start_hub", "end_hub" or "hub". Used both in error
+                messages and to decide whether the max_drones
+                metadata should be validated (it is ignored, and
+                so not validated, for start_hub and end_hub, as the
+                subject requires).
+
+        Returns:
+            tuple[str, int, dict[str, str]]: The zone's name,
+                its x coordinate, its y coordinate, and its
+                metadata dict (which may be empty).
+
+        Raises:
+            ValueError: If the line does not have exactly a name,
+                an x and a y; if the name contains a dash; if x or
+                y is not a valid integer; if the zone metadata has
+                an invalid "zone" type; if max_drones is present
+                (on a plain "hub") and is not a positive integer;
+                or if this zone name was already used before.
+        """
         _, data = line.split(":", 1)
         data = data.strip()
         new_data, meta_dict = self._parse_metadata(data, line_number)
@@ -72,6 +178,37 @@ class Parser:
         return name, x_int, y_int, meta_dict
 
     def parse(self, filepath: str) -> Graph:
+        """Reads the whole map file and builds the final Graph.
+
+        This is the main entry point of the Parser: it opens the
+        file, reads it line by line (skipping blank lines and
+        comments strating with "#"), and dispatches each line to
+        the right handling code based on its prefix ("nb_drones:",
+        "start_hub:", "end_hub:", "hub:" or "connection:"). It
+        collects everything in "raw" form first (in self.zones and
+        self.connections), and only builds the real Zone,
+        Connection and Graph objects at the very end, once it knows
+        the whole file was valid.
+
+        This method never lets an exception reach the caller. Any
+        problem - the file not existing, a folder given by
+        mistake, no read permission, or any other file-system
+        problem (all grouped under Python's OSError), as well as
+        any rule from the subject's parser constraints being
+        broken (raised inside this class as ValueError) - is
+        caught, printed as a clear "Error:..." message (with the
+        line number, whenever one is available), and the whole
+        program exits whith sys.exit(1).
+
+        Args:
+            filepath (str): The path to the map file to read, as
+                given on the command line.
+
+        Returns:
+            Graph: The fully built graph, ready to be used by the
+                Pathfinder and the Simulator. This is the object
+                the rest of the program relies on.
+        """
         try:
             with open(filepath, "r") as file:
                 for line_number, line in enumerate(file, start=1):
@@ -210,7 +347,7 @@ class Parser:
                 end_hub=zones_obj[self.end_hub_name]
             )
             return graph
-        except (FileNotFoundError, PermissionError, ValueError) as e:
+        except (OSError, ValueError) as e:
             if isinstance(e, FileNotFoundError):
                 print(f"Error: file '{filepath}' not found")
             elif isinstance(e, PermissionError):

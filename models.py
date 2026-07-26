@@ -40,7 +40,7 @@ class Zone:
                 purposes. Defaults to None.
             max_drones (int): How many drones can be in tjis zone at
             once. Defaults to 1.
-        
+
         Raises:
             ValueError: If zone_type is not one of the values in
                 VALID_ZONE_TYPES.
@@ -133,7 +133,7 @@ class Graph:
         Args:
             zone_a_name (str): The name of one of the two zones.
             zone_b_name (str): The name of the other zone.
-        
+
         Returns:
             Connection | None: The connection between the two zones,
                 or None if no such connection exists in this graph.

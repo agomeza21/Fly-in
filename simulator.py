@@ -154,7 +154,7 @@ class Simulator:
             format "D<id>-<zone or connection>" (skipping drones
             that did not move), exactly as the subject requieres. If
             no drone moved this turn, nothing is printed.
-        
+
         THis method takes no arguments and returns nothing - all
         of its effects are changes to the Drone objects in
         self.dornes, plus the printed line of movements.

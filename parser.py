@@ -72,7 +72,7 @@ class Parser:
                 prefix (for example, everything after "hub:").
             line_number (int): THe line number in the map file,
                 used only to build clear error messages.
-        
+
         Returns:
             tuple[str, dict[str, str]]: A pair with two values:
                 first,the text that came before the "[" (still not

@@ -135,6 +135,19 @@ connection: tunnelB-goal
 - Any malformed line raises a clear parsing error naming the line number and
   the cause, and the program exits.
 
+## Expected output format
+Example:
+
+```
+D1-corridorA
+D1-tunnelB D2-corridorA
+D1-goal D2-tunnelB D3-corridorA
+D2-goal D3-tunnelB D4-corridorA
+D3-goal D4-tunnelB D5-corridorA
+D4-goal D5-tunnelB
+D5-goal
+```
+
 ## Algorithm choices and implementation strategy
 
 ### Parsing (`Parser`)
